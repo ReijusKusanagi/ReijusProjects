@@ -1,0 +1,491 @@
+import csv
+import pandas as pd
+
+# this piece of code is necessary for Python's IDLE to make it so Pandas can display all the data in the Table without cutting off.
+pd.set_option('display.max_rows', None) # displays all rows when showing the DataFrame
+pd.set_option('display.max_columns', None) # displays all columns
+pd.set_option('display.width', 1000) # sets the width displays of characters (letters)
+pd.set_option('display.colheader_justify', 'left') # sets the alignment of culumn headers to make it easier to read
+
+adminName = ''
+studentName = ''
+
+# this code is how lists are utilized in the program, it reads and converts the contents of a CSV file into a List for easier handling
+# notably, turning them into Lists makes them easier to Loop with
+
+def load_csv(filename):
+    with open(filename, mode='r') as file:
+        return list(csv.reader(file))
+
+def main():
+    while True:
+        print("\n[SCHOOL EVENT REGISTRATION]")
+        print("Are you a [1] Student, or an [2] Admin?")
+        print("[3] Close program")
+        try:
+            loginType = int(input("Enter your input here: "))
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+            continue
+
+        match loginType:
+            case 1:
+                student_name = login_user('student')
+                if student_name:
+                    check_reminders(student_name)
+                    studentPage(student_name)
+            case 2:
+                admin_name = login_user('admin')
+                if admin_name:
+                    adminPage(admin_name)
+            case 3:
+                print("Exiting the program. Goodbye!")
+                break
+            case _:
+                print("Invalid choice. Try again.")
+
+def login_user(user_type):
+    filename = 'studentDB.csv' if user_type == 'student' else 'adminDB.csv'
+    passcode_index = 5 if user_type == 'student' else 2
+
+    user_id = input(f"Enter your {user_type} ID: ")
+    rows = load_csv(filename)
+
+    for row in rows:
+        if row[0] == user_id:
+            passcode = input("Enter your passcode: ")
+            if row[passcode_index] == passcode:
+                name = row[1]
+                print(f"Login successful. Welcome, {name}!")
+                return name
+            else:
+                print("Incorrect passcode.")
+                return None
+
+    print(f"{user_type} ID not found.")
+    return None
+
+def studentPage(studentName):
+    print(f"\nWelcome {studentName}!")
+    studentChoice = int(input("[1] View Events\n[2] Register for Event\n[3] View/Cancel ongoing Registration Request\n[4] Log-out\nUser Input: "))
+    
+    match studentChoice:
+         case 1:
+            view_events()
+            studentPage(studentName)
+         case 2:
+            register_for_event(studentName)
+            studentPage(studentName)
+         case 3:
+            view_cancel_registration(studentName)
+            studentPage(studentName)
+         case 4: 
+            return
+         case _:
+            print("Invalid input.")
+            studentPage(studentName)
+
+            
+def view_events():
+        df = pd.read_csv('eventDB.csv')
+        print("\n[Upcoming Events]")
+        print(df.head(10))
+    
+def register_for_event(studentName):
+    event_name = input("Enter the name of the event you want to register for: ")
+    events = load_csv('eventDB.csv')[1:]
+
+    event_exists = False
+    event_date = None
+    max_capacity = None
+
+    for event in events:
+        if event[0] == event_name:
+            event_exists = True
+            event_date = event[3]
+            max_capacity = int(event[6]) 
+            break
+    
+    if not event_exists:
+        print("Event not found.")
+        return
+
+    registrations = load_csv('registrationDB.csv')[1:]
+    confirmed_count = sum(1 for entry in registrations if entry[2] == event_name and entry[4] == 'confirmed')
+
+    if confirmed_count >= max_capacity:
+        print(f"Sorry, '{event_name}' has reached full capacity and can no longer accept registrations.")
+        return
+
+    students = load_csv('studentDB.csv')[1:]
+    current_student_id = None
+    for student in students:
+        if student[1] == studentName:
+            current_student_id = student[0]
+            break
+    if not current_student_id:
+        print("Student ID not found.")
+        return
+
+    for entry in registrations:
+        if entry[0] == current_student_id and entry[2] == event_name and entry[4] == 'pending':
+            print("You have already registered for this event.")
+            return
+
+    with open('registrationDB.csv', 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([current_student_id, studentName, event_name, event_date, 'pending'])
+
+    print(f"Successfully registered for '{event_name}' on {event_date} (status: pending).")
+
+def view_cancel_registration(student_name):
+    registrationData = load_csv('registrationDB.csv')
+    header = registrationData[0]
+    registrations = [row for row in registrationData[1:] if row[1] == student_name]
+
+    if not registrations:
+        print("\nYou have no event registrations.")
+        return
+
+    print("\n[Your Registrations]")
+    for i in range(len(registrations)):
+        # Update to reflect correct column indexes: event name in column 2, status in column 3
+        print(f"[{i}] Event: {registrations[i][2]} | Status: {registrations[i][4]}")
+
+    print("Enter -1 to go back without cancelling anything.")
+
+    index = int(input("Enter the number of the registration to cancel: "))
+    if index == -1:
+        print("Going back to the previous menu.")
+        return
+    if index < 0 or index >= len(registrations):
+        print("Invalid selection.")
+        return
+
+    target_event = registrations[index][2]
+    updated_data = [header]
+    for row in registrationData[1:]:
+        if row[1] == student_name and row[2] == target_event and row[4] != 'Cancelled':
+            row[4] = 'Cancelled'
+        updated_data.append(row)
+
+    with open('registrationDB.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(updated_data)
+
+    print(f"Your registration for '{target_event}' has been cancelled.")
+
+
+def adminPage(admin_name):
+    print(f"\n[Admin Page] Logged in as {admin_name}")
+    adminChoice = int(input("[1] View Events\n[2] Create New Event\n[3] Update Event Details\n[4] View Registrations\n[5] Approve/Reject Registrations\n[6] Send Reminders\n[7] Add New Student\n[8] Add New Admin\n[9] Change Student/Admin Passcode\n[10] Log-out]\nUser Input: "))
+    
+    match adminChoice:
+        case 1:
+            view_events()
+            adminPage(admin_name)
+        case 2:
+            create_event()
+            adminPage(admin_name)
+        case 3:
+            update_event()
+            adminPage(admin_name)
+        case 4: 
+            view_registration()
+            adminPage(admin_name)
+        case 5:
+            update_registration()
+            adminPage(admin_name)
+        case 6:
+            send_reminders(admin_name)
+            adminPage(admin_name)
+        case 7:
+            add_student()
+            adminPage(admin_name)
+        case 8:
+            add_admin()
+            adminPage(admin_name)
+        case 9:
+            change_passcode()
+            adminPage(admin_name)
+        case 10:
+            return
+        case _:
+            print("Invalid choice! Try again.")
+            adminPage(admin_name)
+
+
+
+def create_event():
+    print("Creating a new event...")
+    events = load_csv('eventDB.csv')
+    existing_events = [row[0] for row in events]
+
+    while True:
+        newEvent = input("Enter Event Name: ")
+        if newEvent in existing_events:
+            print("An event with that name already exists. Please choose a different name.")
+        else:
+            break
+
+    newDesc = input("Enter a description for your event (maximum of 10 words): ")
+    newVenue = input("Enter the venue for your event: ")
+    newDate = input("Enter a Date for the event: ")
+    newTime = input("Enter the schedule for your event (xx:xx AM/PM - xx:xx AM/PM format): ")
+    newRequirements = input("Enter the requirements for your event (type none if none): ")
+    newCapacity = input("Input the max capacity (integer) of your event: ")
+
+    with open('eventDB.csv', 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([newEvent, newDesc, newVenue, newDate, newTime, newRequirements, newCapacity])
+
+    print(f"Event '{newEvent}' has been created and saved.")
+
+def update_event():
+    events = load_csv('eventDB.csv')
+
+    if len(events) <= 1:
+        print("No events available to update.")
+        return
+
+    print("\n[Update Event]")
+    event_name = input("Enter the name of the event you want to update: ")
+
+    for i in range(1, len(events)):
+        if events[i][0] == event_name:
+            print("\nEvent found. What would you like to update?")
+            print("[1] Event Name")
+            print("[2] Description")
+            print("[3] Venue")
+            print("[4] Date")
+            print("[5] Time")
+            print("[6] Requirements")
+            print("[7] Capacity")
+
+            choice = input("Enter your choice: ")
+            field_index = int(choice)
+
+            if 1 <= field_index <= 7:
+                new_value = input("Enter new value: ")
+                events[i][field_index - 1] = new_value
+                print("Event updated successfully.")
+            else:
+                print("Invalid choice.")
+                return
+
+            with open('eventDB.csv', 'w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerows(events)
+            return
+
+    print("Event not found.")
+    
+def view_registration():
+    df = pd.read_csv('registrationDB.csv')
+    print("\n[Current Registrations]")
+    print(df.head())
+    
+def update_registration():
+    registrationData = load_csv('registrationDB.csv')
+    header = registrationData[0]
+    all_registrations = registrationData[1:]
+
+    if not all_registrations:
+        print("\nNo registrations found.")
+        return
+
+    df = pd.DataFrame(all_registrations, columns=header)
+    print("\n[All Registrations]")
+    print(df)
+
+    choice = int(input("\nEnter the row number of the registration to update (starting from 0): "))
+    if choice < 0 or choice >= len(all_registrations):
+        print("Invalid choice.")
+        return
+
+    event_name = all_registrations[choice][2]
+
+    print(f"\nChoose new status for '{event_name}':")
+    print("[1] Confirmed")
+    print("[2] Cancelled")
+    status_choice = input("Enter your choice (1 or 2): ")
+
+    if status_choice == '1':
+        new_status = 'confirmed'
+    elif status_choice == '2':
+        new_status = 'cancelled'
+    else:
+        print("Invalid choice.")
+        return
+
+
+    all_registrations[choice][4] = new_status 
+
+    updated_data = [header] + all_registrations
+    with open('registrationDB.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(updated_data)
+
+    print(f"Registration status for '{event_name}' updated to {new_status}.")
+
+def send_reminders(admin_name):
+    registrationData = load_csv('registrationDB.csv')
+    header = registrationData[0]
+    registrations = registrationData[1:]
+
+    if not registrations:
+        print("No registrations available.")
+        return
+
+    print("\n[Student Event Registrations]")
+    for i in range(len(registrations)):
+        print(f"[{i}] ID: {registrations[i][0]} | Name: {registrations[i][1]} | Event: {registrations[i][2]} | Status: {registrations[i][4]}")
+
+    choice = int(input("Enter the number of the student to send a reminder to: "))
+    if choice < 0 or choice >= len(registrations):
+        print("Invalid choice.")
+        return
+
+    student_id = registrations[choice][0]
+    student_name = registrations[choice][1]
+    event_name = registrations[choice][2]
+    event_status = registrations[choice][4] 
+
+    print("\nChoose reminder type:")
+    print("[1] Status Reminder (Confirmed or Cancelled)")
+    print("[2] Date Reminder")
+
+    reminder_type = int(input("Enter your choice: "))
+
+    if reminder_type == 1:
+        reminder_message = f"Your registration for '{event_name}' has been {event_status.lower()} by {admin_name}."
+    elif reminder_type == 2:
+        events = load_csv('eventDB.csv')[1:]
+        event_date = None
+        for event in events:
+            if event[0] == event_name:
+                event_date = event[3]
+                break
+        if event_date:
+            reminder_message = f"Reminder: '{event_name}' is on {event_date}. Don't forget!"
+        else:
+            print("Event date not found.")
+            return
+    else:
+        print("Invalid reminder type.")
+        return
+
+    with open('reminderDB.csv', 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([student_id, student_name, reminder_message])
+
+    print("Reminder has been sent and saved.")
+
+def check_reminders(student_name):
+    reminders = load_csv('reminderDB.csv')
+
+    if len(reminders) <= 1:
+        return  # if there are no reminders, return
+
+    header = reminders[0]
+    remaining_reminders = [header]
+    has_reminder = False
+
+    for row in reminders[1:]:
+        if row[1] == student_name: 
+            print(f"\n🔔 Reminder: {row[2]}")
+            has_reminder = True
+        else:
+            remaining_reminders.append(row)
+
+    if has_reminder:
+        with open('reminderDB.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(remaining_reminders)
+            
+def add_student():
+    print("\n[Add New Student]")
+
+    students = load_csv('studentDB.csv')
+    existing_ids = [row[0] for row in students]
+
+    while True:
+        new_id = input("Enter new Student ID: ")
+        if new_id in existing_ids:
+            print("That ID already exists. Please enter a unique ID.")
+        else:
+            break
+
+    new_name = input("Enter student name: ")
+    new_course = input("Enter course: ")
+    new_gender = input("Enter gender: ")
+    new_contact = input("Enter contact number: ")
+    new_passcode = input("Enter passcode: ")
+
+    with open('studentDB.csv', 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([new_id, new_name, new_course, new_gender, new_contact, new_passcode])
+
+    print(f"Student '{new_name}' has been added successfully.")
+    
+def add_admin():
+    print("\n[Add New Admin]")
+
+    admin_id = input("Enter Admin ID: ")
+    admin_name = input("Enter Admin Name: ")
+    passcode = input("Enter Passcode: ")
+
+    existing_admins = load_csv('adminDB.csv')[1:] 
+    for admin in existing_admins:
+        if admin[0] == admin_id:
+            print("An admin with this ID already exists. Try a different one.")
+            return
+
+    with open('adminDB.csv', 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([admin_id, admin_name, passcode])
+
+    print(f"Admin '{admin_name}' has been added successfully.")
+
+def change_passcode():
+    print("\n[Change Passcode]")
+    print("[1] Change Student Passcode")
+    print("[2] Change Admin Passcode")
+    
+    try:
+        user_choice = int(input("Select an option: "))
+    except ValueError:
+        print("Invalid input.")
+        return
+
+    if user_choice == 1:
+        filename = 'studentDB.csv'
+        passcode_index = 5
+        user_type = "Student"
+    elif user_choice == 2:
+        filename = 'adminDB.csv'
+        passcode_index = 2
+        user_type = "Admin"
+    else:
+        print("Invalid choice.")
+        return
+
+    users = load_csv(filename)
+    user_id = input(f"Enter the {user_type} ID to update: ")
+
+    for i in range(1, len(users)):
+        if users[i][0] == user_id:
+            print(f"Current Name: {users[i][1]}")
+            new_passcode = input("Enter new passcode: ")
+            users[i][passcode_index] = new_passcode
+
+            with open(filename, 'w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerows(users)
+
+            print(f"{user_type} passcode updated successfully.")
+            return
+
+    print(f"{user_type} ID not found.")
+ 
+main()
