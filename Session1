@@ -1,0 +1,48 @@
+// // Activity 1
+
+// /*
+// this is the multi line comment 
+// I'm making for the requirement
+// */
+
+// Console.WriteLine("Welcome to C# Programming!");
+// Console.Write("This is my first laboratory activity.");
+
+// // Activity 2
+// int number = 67;
+// int number2 = 68;
+// int number3 = 69;
+// double pi = 3.14;
+// double golden_ratio = 1.61;
+// double random_value = 92.12;
+// string word = "yeah";
+// string words = "hell yeah";
+// string wordword = "yeahyeah"; 
+// //char ch = 'A';
+// bool isCorrect = false;
+
+Console.WriteLine(number);
+Console.WriteLine(number2);
+Console.WriteLine(number3);
+Console.WriteLine(pi);
+Console.WriteLine(golden_ratio);
+Console.WriteLine(random_value);
+Console.WriteLine(word);
+Console.WriteLine(words);
+Console.WriteLine(wordword);
+//Console.WriteLine(ch);
+Console.WriteLine(isCorrect);
+
+// // Activity 3
+// Console.Write("What is your name? ");
+// string name = Console.ReadLine();
+// Console.Write("How old are you? ");
+// int age = Convert.ToInt32(Console.ReadLine());
+// Console.Write("What is your favorite number? ");
+// int faveNum = Convert.ToInt32(Console.ReadLine());
+
+// Console.WriteLine("");
+// Console.WriteLine("Hello " + name + "! You are " + age + " years old and your favorite number is " + faveNum + ".");
+
+
+// // Name, age, Course,
